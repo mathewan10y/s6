@@ -1,0 +1,523 @@
+Your code implements a multi-client chat application using TCP sockets in C.
+It consists of two programs:
+
+Server program – accepts multiple clients and broadcasts messages.
+
+Client program – connects to the server and sends/receives chat messages.
+
+The server uses select() to handle multiple clients simultaneously.
+
+I'll explain every concept, term, and step clearly.
+
+1. HEADER FILES USED
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+#include<unistd.h>
+#include<arpa/inet.h>
+#include<sys/socket.h>
+#include<sys/select.h>
+1. stdio.h
+
+Used for input/output functions.
+
+Examples:
+
+printf()
+
+fgets()
+
+2. stdlib.h
+
+General utilities.
+
+Examples:
+
+exit()
+
+memory functions
+
+3. string.h
+
+String handling.
+
+Examples:
+
+strlen()
+
+memset()
+
+strcpy()
+
+strcspn()
+
+4. unistd.h
+
+POSIX system calls.
+
+Examples:
+
+read()
+
+close()
+
+write()
+
+5. arpa/inet.h
+
+Internet operations.
+
+Functions:
+
+inet_addr()
+
+inet_ntoa()
+
+htons()
+
+Used for IP address conversion.
+
+6. sys/socket.h
+
+Contains socket APIs:
+
+socket()
+
+bind()
+
+listen()
+
+accept()
+
+connect()
+
+send()
+
+recv()
+
+7. sys/select.h
+
+Contains select() function used for multiplexing (handling multiple sockets)..00
+
+2. CONSTANT DEFINITIONS
+#define PORT 5173
+#define BUFFER_SIZE 1024
+#define MAX_CLIENTS 10
+PORT
+
+Communication port number.
+
+Example:
+
+Server IP : 172.18.17.49
+Port      : 5173
+BUFFER_SIZE
+
+Maximum message size.
+
+char buffer[1024]
+MAX_CLIENTS
+
+Maximum number of clients the server can handle simultaneously.
+
+3. SERVER PROGRAM EXPLANATION
+STEP 1 — VARIABLE DECLARATION
+int sockfd,newfd,client_sockets[MAX_CLIENTS];
+sockfd
+
+Server socket descriptor.
+
+newfd
+
+Socket for a newly connected client.
+
+client_sockets[]
+
+Array storing connected client sockets.
+
+Example
+
+client_sockets[0] = client1
+client_sockets[1] = client2
+client_sockets[2] = client3
+struct sockaddr_in server_addr,client_addr;
+
+Structure used to store IP address and port information.
+
+socklen_t len;
+
+Stores size of address structure.
+
+fd_set readfds;
+
+Set of file descriptors monitored by select().
+
+char buffer[BUFFER_SIZE];
+
+Stores incoming message.
+
+char usernames[MAX_CLIENTS][50];
+
+Stores usernames of connected clients.
+
+Example
+
+usernames[0] = Alice
+usernames[1] = Bob
+STEP 2 — INITIALIZE CLIENT ARRAYS
+for(int i=0;i<MAX_CLIENTS;i++)
+{
+    client_sockets[i]=0;
+    memset(usernames[i],0,50);
+}
+Why?
+
+To initialize arrays.
+
+memset() fills memory with zeros.
+
+STEP 3 — CREATE SOCKET
+sockfd=socket(AF_INET,SOCK_STREAM,0);
+socket()
+
+Creates a communication endpoint.
+
+Parameters:
+
+Parameter	Meaning
+AF_INET	IPv4
+SOCK_STREAM	TCP protocol
+0	default protocol
+
+Example:
+
+sockfd = 3
+
+(File descriptor)
+
+STEP 4 — CONFIGURE SERVER ADDRESS
+server_addr.sin_family=AF_INET;
+
+Address family → IPv4.
+
+server_addr.sin_addr.s_addr=INADDR_ANY;
+
+Accept connections from any IP address.
+
+Equivalent to:
+
+0.0.0.0
+server_addr.sin_port=htons(PORT);
+
+htons() → Host To Network Short.
+
+Converts port number to network byte order.
+
+STEP 5 — BIND SOCKET
+bind(sockfd,(struct sockaddr*)&server_addr,sizeof(server_addr));
+bind()
+
+Associates socket with:
+
+IP address + PORT
+
+Example
+
+0.0.0.0 : 5173
+STEP 6 — LISTEN
+listen(sockfd,5);
+
+Server starts waiting for connections.
+
+5 = maximum pending connections in queue.
+
+STEP 7 — MAIN SERVER LOOP
+while(1)
+
+Server runs forever.
+
+STEP 8 — CLEAR FD SET
+FD_ZERO(&readfds);
+
+Clears the descriptor set.
+
+STEP 9 — ADD SERVER SOCKET
+FD_SET(sockfd,&readfds);
+
+Add server socket to monitored list.
+
+STEP 10 — ADD CLIENT SOCKETS
+for(int i=0;i<MAX_CLIENTS;i++)
+{
+    int sd=client_sockets[i];
+    if(sd>0) FD_SET(sd,&readfds);
+    if(sd>maxfd) maxfd=sd;
+}
+
+Adds all active clients to select() monitoring.
+
+STEP 11 — SELECT FUNCTION
+select(maxfd+1,&readfds,NULL,NULL,NULL);
+select()
+
+Waits for activity on sockets.
+
+Monitors:
+
+new connection
+
+message from client
+
+Parameters:
+
+Parameter	Meaning
+maxfd+1	highest fd
+readfds	read events
+NULL	write events
+NULL	exception events
+NULL	wait forever
+STEP 12 — NEW CLIENT CONNECTION
+if(FD_ISSET(sockfd,&readfds))
+
+Checks if server socket has activity.
+
+Means:
+
+A new client wants to connect
+ACCEPT CONNECTION
+newfd=accept(sockfd,(struct sockaddr*)&client_addr,&len);
+
+Creates a new socket for the client.
+
+Example:
+
+client1 socket = 5
+client2 socket = 6
+STORE CLIENT SOCKET
+client_sockets[i]=newfd;
+READ USERNAME
+read(newfd,usernames[i],50);
+
+Client sends username immediately after connecting.
+
+PRINT CLIENT INFO
+printf("Client %s@%s\n",
+usernames[i],inet_ntoa(client_addr.sin_addr));
+
+Example output:
+
+Client Alice@172.18.17.49
+
+inet_ntoa() converts binary IP → string.
+
+STEP 13 — CHECK CLIENT MESSAGES
+if(sd>0 && FD_ISSET(sd,&readfds))
+
+Meaning:
+
+client has sent a message
+STEP 14 — READ MESSAGE
+int bytes=read(sd,buffer,BUFFER_SIZE);
+
+Reads message from client.
+
+STEP 15 — CLIENT DISCONNECT
+if(bytes<=0)
+
+Means:
+
+client closed connection
+
+Actions:
+
+close socket
+remove from list
+clear username
+STEP 16 — PRINT MESSAGE
+printf("Message from %s : %s",usernames[i],buffer);
+
+Example:
+
+Message from Alice : Hello
+STEP 17 — FORMAT BROADCAST MESSAGE
+sprintf(msg,"%s : %s",usernames[i],buffer);
+
+Creates formatted message.
+
+Example:
+
+Alice : Hello everyone
+STEP 18 — BROADCAST MESSAGE
+for(int j=0;j<MAX_CLIENTS;j++)
+{
+    if(client_sockets[j]>0 && client_sockets[j]!=sd)
+        send(client_sockets[j],msg,strlen(msg),0);
+}
+
+Send message to all other clients except sender.
+
+4. CLIENT PROGRAM EXPLANATION
+STEP 1 — CREATE SOCKET
+sockfd=socket(AF_INET,SOCK_STREAM,0);
+
+Creates TCP socket.
+
+STEP 2 — SERVER ADDRESS
+server_addr.sin_family=AF_INET;
+server_addr.sin_port=htons(PORT);
+
+Same port as server.
+
+STEP 3 — SERVER IP
+server_addr.sin_addr.s_addr=inet_addr("172.18.17.49");
+
+Server's IP address.
+
+STEP 4 — CONNECT
+connect(sockfd,(struct sockaddr*)&server_addr,sizeof(server_addr));
+
+Client requests connection to server.
+
+STEP 5 — ENTER USERNAME
+fgets(username,50,stdin);
+
+User types:
+
+Alice
+REMOVE NEWLINE
+username[strcspn(username,"\n")]=0;
+
+Removes \n.
+
+SEND USERNAME
+send(sockfd,username,strlen(username),0);
+
+Server stores username.
+
+STEP 6 — CLIENT LOOP
+while(1)
+
+Runs chat continuously.
+
+STEP 7 — FD SET
+FD_SET(0,&readfds);
+FD_SET(sockfd,&readfds);
+
+Monitor:
+
+0 → keyboard input
+sockfd → server messages
+STEP 8 — SELECT
+select(sockfd+1,&readfds,NULL,NULL,NULL);
+
+Wait for:
+
+keyboard input
+
+server message
+
+STEP 9 — USER INPUT
+if(FD_ISSET(0,&readfds))
+
+User typed message.
+
+Send to server:
+
+send(sockfd,buffer,strlen(buffer),0);
+STEP 10 — RECEIVE MESSAGE
+if(FD_ISSET(sockfd,&readfds))
+
+Server sent message.
+
+READ MESSAGE
+read(sockfd,buffer,BUFFER_SIZE);
+
+Example received:
+
+Bob : Hello Alice
+PRINT
+printf("%s",buffer);
+COMPLETE WORKFLOW
+Server start
+     │
+     ▼
+listen()
+     │
+     ▼
+Client connect
+     │
+     ▼
+accept()
+     │
+     ▼
+Client sends username
+     │
+     ▼
+Server stores username
+     │
+     ▼
+Client sends message
+     │
+     ▼
+Server receives message
+     │
+     ▼
+Server broadcasts to other clients
+EXAMPLE CHAT
+
+Client1:
+
+Alice
+Hello
+
+Client2:
+
+Bob
+
+Client2 sees:
+
+Alice : Hello
+IMPORTANT CONCEPTS USED
+Concept	Purpose
+Socket	Communication endpoint
+TCP	Reliable connection
+bind()	attach port
+listen()	wait for clients
+accept()	accept connection
+connect()	client connect
+send()	send message
+read()	receive message
+select()	handle multiple clients
+FD_SET	add socket to select
+FD_ISSET	check activity
+WHY select() IS IMPORTANT
+
+Without select():
+
+Server can handle only one client.
+
+With select():
+
+Server can handle multiple clients simultaneously.
+
+REAL WORLD APPLICATIONS
+
+This architecture is used in:
+
+IRC chat servers
+
+multiplayer games
+
+messaging systems
+
+chat applications
+
+If you want, I can also explain:
+
+How select() works internally
+
+Full step-by-step execution example with 3 clients
+
+How to modify this to support 1000+ clients (epoll/poll)
+
+Important viva questions from this program (very common in networking labs).
