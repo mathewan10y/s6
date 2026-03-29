@@ -3,7 +3,8 @@
 #include <unistd.h>
 #include <time.h>
 
-int main(){
+int main()
+{
 
   int bucket_capacity;
   int output_rate;
@@ -11,7 +12,7 @@ int main(){
   int stored = 0;
   int current_time = 0;
   int sequence[100];
-  srand(time(NULL)); 
+  srand(time(NULL));
 
   printf("Enter bucket capacity (packets): ");
   scanf("%d", &bucket_capacity);
@@ -22,12 +23,12 @@ int main(){
   printf("Enter incoming sequence size:");
   scanf("%d", &sequence_length);
   printf("Input Sequence : ");
-  for(int i=0;i<sequence_length;i++)
-      scanf("%d",&sequence[i]);
-      printf("\nRecieve  sent  Drop Remaining\n");
-  for(int i=0;i<sequence_length;i++)
+  for (int i = 0; i < sequence_length; i++)
+    scanf("%d", &sequence[i]);
+  printf("\nRecieve  sent  Drop Remaining\n");
+  for (int i = 0; i < sequence_length; i++)
   {
-    int dropped=0;
+    int dropped = 0;
     int incoming = sequence[i];
     if (incoming + stored <= bucket_capacity)
     {
@@ -40,13 +41,10 @@ int main(){
 
     int sent = (stored >= output_rate) ? output_rate : stored;
     stored -= sent;
-    printf("%d\t%d\t%d\t%d\n",incoming,sent,dropped,stored);
+    printf("%d\t%d\t%d\t%d\n", incoming, sent, dropped, stored);
     sleep(1);
   }
 
   printf("\nSimulation completed.\n");
   return 0;
 }
-
-
-
